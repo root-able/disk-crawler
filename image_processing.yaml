@@ -1,0 +1,12 @@
+date_confidence:
+
+    exif:
+      - DateTimeOriginal: "High"
+      - DateTime: "Medium"
+      - DateTimeDigitized: "Medium"
+
+    file:
+      - mtime: "Medium"
+      - ctime: "Low"
+      - birthtime: "Low"
+

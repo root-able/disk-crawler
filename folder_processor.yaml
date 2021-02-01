@@ -1,0 +1,25 @@
+file_extensions:
+
+    - image:
+        - 'jpg'
+        - 'jpeg'
+        - 'gif'
+        - 'png'
+        - 'tif'
+        - 'webp'
+        
+    - video:
+        - 'mp4'
+        - 'mpeg'
+        - 'mkv'
+        - 'avi'
+        
+    - document:
+        - 'pdf'
+        - 'doc'
+        - 'docx'
+        - 'xls'
+        - 'xlsx'
+        - 'txt'
+        - 'odt'
+        - 'odg'
