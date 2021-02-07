@@ -1,14 +1,11 @@
 import os
-import yaml
-import logging
-import pathlib
-import platform
 
 from PIL import Image
 from PIL.ExifTags import TAGS
 from datetime import datetime
 
-from utilities import setup_logger, get_settings
+from file_processor import get_creation_date
+from utilities import setup_logger, read_settings, get_script_details
 
 # GLOBAL VARIABLES
 DATE_FORMAT = "%Y-%m-%d - %H:%M:%S"
@@ -20,106 +17,24 @@ DEFAULT_EPOCH_TIME = datetime.fromtimestamp(
 
 EXIF_EXTRA_FIELDS = ["Make", "Model", "Artist"]
 
-HOME_PATH = pathlib.Path(__file__).parent.parent.absolute()
-SETTINGS_FILE_NAME = os.path.join(HOME_PATH, r'etc\image_processor.yaml')
-LOG_FILE_PATH = os.path.join(HOME_PATH, r'var\log\image_processor.log')
-FILE_TYPE = 'images'
+SCRIPT_HOME, SCRIPT_NAME = get_script_details(script_path=__file__)
+PATH_FILE_LOG = os.path.join(SCRIPT_HOME,'var','log',SCRIPT_NAME + '.log')
+PATH_FILE_SETTINGS = os.path.join(SCRIPT_HOME, 'etc', SCRIPT_NAME + '.yaml')
+PATH_FILE_OUTPUT = os.path.join(SCRIPT_HOME, 'var', 'lib', SCRIPT_NAME + '.json')
 
 # DEFINING LOGGING SETTINGS
 logger = setup_logger(
-	name=__name__,
-	log_file=LOG_FILE_PATH,
+	name=SCRIPT_NAME,
+	file_path=PATH_FILE_LOG,
+)
+
+image_settings = read_settings(
+	settings_file=PATH_FILE_SETTINGS,
+	logger_object=logger,
 )
 
 
 # FUNCTIONS
-def get_formatted_date(
-    timestamp: float,
-):
-    """
-    Get a date following input format
-    from raw timestamp with decimals
-    """
-
-    datetime_object = datetime.fromtimestamp(
-        int(
-            timestamp
-        )
-    )
-
-    formatted_date = datetime_object.strftime(
-        DATE_FORMAT
-    )
-
-    return formatted_date
-
-
-
-
-def get_creation_date(
-    file_path: str,
-    file_settings: dict,
-):
-    """
-    Attempt to get the creation date according
-    to current Operating System
-    """
-    date_field = None
-    date_confidence = None
-    creation_date = float(0)
-    operating_system = str()
-
-    if platform.system() == 'Windows':
-
-        operating_system = 'Windows'
-        date_field = 'ctime'
-        creation_date = os.path.getctime(
-            file_path
-        )
-
-    else:
-
-        file_stats = os.stat(
-            file_path
-        )
-
-        if st_birthtime in file_stats:
-
-            creation_date = file_stats.st_birthtime
-            operating_system = 'Mac OS'
-            date_field = 'birthtime'
-
-        else:
-
-            creation_date = file_stats.st_birthtime
-            operating_system = 'Linux'
-            date_field = 'mtime'
-
-    creation_date_formatted = get_formatted_date(
-        creation_date,
-    )
-
-    for field_settings in file_settings:
-
-        date_confidence = field_settings.get(
-            date_field,
-            date_confidence,
-        )
-
-    logger.info(
-        f'Detected operating_system="{operating_system}", '
-        f'using date_field="{date_field}", '
-        f'with date_confidence="{date_confidence}", '
-        f'collecting date_value="{creation_date_formatted}"'
-    )
-
-    return (
-        date_field,
-        date_confidence,
-        creation_date_formatted,
-    )
-
-
 def get_labeled_exif(
     file_path: str,
 ):
@@ -205,12 +120,7 @@ def get_image_settings(
     """
     image_info = dict()
 
-    exif_settings = get_settings(
-        settings_file=SETTINGS_FILE_NAME,
-        parent_name="date_confidence",
-        settings_type="exif",
-        logger_object=logger,
-    )
+    exif_settings = image_settings["date_confidence"]["exif"]
 
     logger.info(
         f'Processing file_path="{file_path}"'
@@ -234,12 +144,7 @@ def get_image_settings(
         or date_confidence is None
         or date_value == 0
     ):
-        file_settings = get_settings(
-            settings_file=SETTINGS_FILE_NAME,
-            parent_name="date_confidence",
-            settings_type="file",
-            logger_object=logger,
-        )
+        file_settings = image_settings["date_confidence"]["file"]
 
         date_type = "CREATION"
 

@@ -1,39 +1,34 @@
 import os
-import yaml
 import json
-import pathlib
 import collections.abc
 
 from hashlib import sha256 as hash_algo
 from multiprocessing import Process, Lock
 
+from file_processor import get_file_settings
 from image_processor import get_image_settings
-from utilities import setup_logger, get_settings
+from utilities import setup_logger, read_settings, get_script_details
 
 # GLOBAL VARIABLES
 SRC_PATH = r'C:\Users\pault\Pictures\Sélection Noël 2019'
 
-HOME_PATH = pathlib.Path(__file__).parent.parent.absolute()
-SETTINGS_FILE_NAME = os.path.join(HOME_PATH, r'etc\folder_processor.yaml')
-INVENTORY_FILE_PATH = os.path.join(HOME_PATH, r'var\lib\image_inventory.json')
-LOG_FILE_PATH = os.path.join(HOME_PATH, r'var\log\folder_processor.log')
-FILE_TYPE = 'images'
+SCRIPT_HOME, SCRIPT_NAME = get_script_details(script_path=__file__)
+PATH_FILE_LOG = os.path.join(SCRIPT_HOME,'var','log',SCRIPT_NAME + '.log')
+PATH_FILE_SETTINGS = os.path.join(SCRIPT_HOME, 'etc', SCRIPT_NAME + '.yaml')
+PATH_FILE_OUTPUT = os.path.join(SCRIPT_HOME, 'var', 'lib', SCRIPT_NAME + '.json')
+
+FILE_TYPE="image"
 
 # DEFINING LOGGING SETTINGS
 logger = setup_logger(
-	name=__name__,
-	log_file=LOG_FILE_PATH,
+	name=SCRIPT_NAME,
+	file_path=PATH_FILE_LOG,
 )
 
-image_extensions = get_settings(
-	settings_file=SETTINGS_FILE_NAME,
-	parent_name="file_extensions",
-	settings_type="image",
+folder_settings = read_settings(
+	settings_file=PATH_FILE_SETTINGS,
 	logger_object=logger,
 )
-
-print (image_extensions)
-
 
 # FUNCTIONS
 def read_inventory(source_file):
@@ -53,21 +48,21 @@ def read_inventory(source_file):
 def store_inventory(file_dict, lock):
 
 	logger.debug(
-		f'Locking output_path="{INVENTORY_FILE_PATH}" in '
+		f'Locking output_path="{PATH_FILE_OUTPUT}" in '
 		f'order to store computed result'
 	)
 	lock.acquire()
 	
 	try:
 		inventory_dict = read_inventory(
-			source_file=INVENTORY_FILE_PATH
+			source_file=PATH_FILE_OUTPUT
 		)
 		update(
 			inventory_dict,
 			file_dict,
 		)
 
-		with open(INVENTORY_FILE_PATH, 'w', encoding='utf8') as inventory_file:
+		with open(PATH_FILE_OUTPUT, 'w', encoding='utf8') as inventory_file:
 			json.dump(
 				inventory_dict,
 				inventory_file,
@@ -77,7 +72,7 @@ def store_inventory(file_dict, lock):
 
 	finally:
 		logger.debug(
-			f'Releasing lock on output_path="{INVENTORY_FILE_PATH}" '
+			f'Releasing lock on output_path="{PATH_FILE_OUTPUT}" '
 			f'after storing computed results'
 		)
 		lock.release()
@@ -112,32 +107,38 @@ def run_child(function, args):
 
 def process_file(file_path, lock):
 
-	file_hash = None
+	file_type = "unknown"
+	file_details = get_file_settings(file_path)
 
 	with open(file_path,"rb") as file_descriptor:
 		file_data = file_descriptor.read()
 		file_hash = hash_algo(file_data).hexdigest()
 	
 	logger.info(
-		f'Processed file_path="{file_path}" with '
-		f'result file_hash={file_hash}"'
+		f'Processing file_path="{file_path}" with '
+		f'file_hash={file_hash}" and '
+		f'file_ext="{file_details["file"]["extension"]}"'
 	)
 
-	file_details = get_image_settings(file_path)
-	file_details.update({
-		"bytes": os.path.getsize(file_path)
-	})
+	for file_ext_type, file_ext_list in folder_settings["file_extensions"].items():
+		if file_details["file"]["extension"] in file_ext_list:
+			file_type = file_ext_type
+			logger.info(f'Found matching known file_type="{file_type}"')
+
+			if file_type == "image":
+				file_details.update(
+					get_image_settings(file_path)
+				)
 
 	file_dict = {
-		FILE_TYPE:{
-			file_hash:{
+		file_type: {
+			file_hash: {
 				file_path: file_details
 			}
 		}
 	}
-	
+
 	store_inventory(file_dict, lock)
-	
 
 def process_folder(folder_path, lock):
 
