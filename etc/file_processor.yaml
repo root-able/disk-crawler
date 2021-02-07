@@ -1,0 +1,6 @@
+hash_algorithms:
+
+    md5: "enabled"
+    sha1: "enabled"
+    sha256: "enabled"
+

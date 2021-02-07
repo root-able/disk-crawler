@@ -1,4 +1,5 @@
 import os
+import hashlib
 import platform
 
 from utilities import setup_logger, get_script_details, read_settings, get_formatted_date
@@ -13,6 +14,11 @@ PATH_FILE_SETTINGS = os.path.join(SCRIPT_HOME, 'etc', SCRIPT_NAME + '.yaml')
 logger = setup_logger(
 	name=SCRIPT_NAME,
 	file_path=PATH_FILE_LOG,
+)
+
+file_settings = read_settings(
+	settings_file=PATH_FILE_SETTINGS,
+	logger_object=logger,
 )
 
 # FUNCTIONS
@@ -86,13 +92,36 @@ def get_file_settings(
     Process an input file based only on OS settings
     """
 
-    file_ext = os.path.splitext(file_path)[1].replace('.', '').lower()
+    file_name, file_ext = os.path.splitext(file_path)
+    file_name_clean = os.path.basename(file_name)
+    file_ext_clean = file_ext.replace('.', '')
+
+
+    with open(file_path, "rb") as file_descriptor:
+        file_data = file_descriptor.read()
+        hash_dict = dict()
+
+        for name, state in file_settings["hash_algorithms"].items():
+            if state == "enabled":
+                hash_method = getattr(hashlib, name)
+                file_hash = hash_method(file_data).hexdigest()
+                hash_dict[name] = file_hash
+
+    first_hash = next(
+        iter(
+            hash_dict.values()
+        )
+    )
+
     file_object = {
         "file": {
             "bytes": os.path.getsize(file_path),
             "type" : "unknown",
-            "extension" : file_ext,
-        }
+            "path" : file_path,
+            "name" : file_name_clean.lower(),
+            "extension" : file_ext_clean.lower(),
+        },
+        "hash": hash_dict,
     }
 
-    return file_object
+    return first_hash, file_object

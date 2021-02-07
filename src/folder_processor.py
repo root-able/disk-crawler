@@ -2,7 +2,6 @@ import os
 import json
 import collections.abc
 
-from hashlib import sha256 as hash_algo
 from multiprocessing import Process, Lock
 
 from file_processor import get_file_settings
@@ -15,7 +14,7 @@ SRC_PATH = r'C:\Users\pault\Pictures\Sélection Noël 2019'
 SCRIPT_HOME, SCRIPT_NAME = get_script_details(script_path=__file__)
 PATH_FILE_LOG = os.path.join(SCRIPT_HOME,'var','log',SCRIPT_NAME + '.log')
 PATH_FILE_SETTINGS = os.path.join(SCRIPT_HOME, 'etc', SCRIPT_NAME + '.yaml')
-PATH_FILE_OUTPUT = os.path.join(SCRIPT_HOME, 'var', 'lib', SCRIPT_NAME + '.json')
+PATH_FILE_OUTPUT = os.path.join(SCRIPT_HOME, 'var', 'lib', 'files_inventory.json')
 
 FILE_TYPE="image"
 
@@ -108,12 +107,8 @@ def run_child(function, args):
 def process_file(file_path, lock):
 
 	file_type = "unknown"
-	file_details = get_file_settings(file_path)
+	file_hash, file_details = get_file_settings(file_path)
 
-	with open(file_path,"rb") as file_descriptor:
-		file_data = file_descriptor.read()
-		file_hash = hash_algo(file_data).hexdigest()
-	
 	logger.info(
 		f'Processing file_path="{file_path}" with '
 		f'file_hash={file_hash}" and '
@@ -122,19 +117,19 @@ def process_file(file_path, lock):
 
 	for file_ext_type, file_ext_list in folder_settings["file_extensions"].items():
 		if file_details["file"]["extension"] in file_ext_list:
+
 			file_type = file_ext_type
+			file_details["file"]["type"] = file_type
 			logger.info(f'Found matching known file_type="{file_type}"')
 
-			if file_type == "image":
+			if file_details["file"]["type"] == "image":
 				file_details.update(
 					get_image_settings(file_path)
 				)
 
 	file_dict = {
-		file_type: {
-			file_hash: {
-				file_path: file_details
-			}
+		"files": {
+				file_hash: file_details
 		}
 	}
 

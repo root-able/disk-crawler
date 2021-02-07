@@ -9,11 +9,6 @@ from utilities import setup_logger, read_settings, get_script_details
 
 # GLOBAL VARIABLES
 DATE_FORMAT = "%Y-%m-%d - %H:%M:%S"
-DEFAULT_EPOCH_TIME = datetime.fromtimestamp(
-        0
-    ).strftime(
-        DATE_FORMAT
-    )
 
 EXIF_EXTRA_FIELDS = ["Make", "Model", "Artist"]
 
@@ -50,13 +45,11 @@ def get_labeled_exif(
         return exif_data_labeled
 
     else:
-
         image = Image.open(file_path)
         image.verify()
         exif_data_raw = image.getexif()
 
         if exif_data_raw is not None:
-
             for (key, val) in exif_data_raw.items():
                 exif_data_labeled[TAGS.get(key)] = val
 
@@ -72,7 +65,7 @@ def get_exif_date(
     """
     date_field = None
     date_confidence = None
-    exif_date_formatted = DEFAULT_EPOCH_TIME
+    exif_date_timestamp = 0
 
     for field_settings in exif_settings:
 
@@ -86,37 +79,50 @@ def get_exif_date(
                     current_field
                 )
 
-                exif_date_formatted = datetime.strptime(
-                    exif_date,
-                    "%Y:%m:%d %H:%M:%S"
-                ).strftime(
-                    DATE_FORMAT
+                exif_date_timestamp = datetime.timestamp(
+                    datetime.strptime(
+                        exif_date,
+                        "%Y:%m:%d %H:%M:%S"
+                    )
                 )
-
                 logger.info(
                     f'Found EXIF date_field="{date_field}" '
                     f'with date_confidence="{date_confidence}", '
-                    f'collecting date_value="{exif_date_formatted}"'
+                    f'collecting date_timestamp="{exif_date_timestamp}"'
                 )
 
                 return (
                     date_field,
                     date_confidence,
-                    exif_date_formatted,
+                    exif_date_timestamp,
                 )
 
     return (
         date_field,
         date_confidence,
-        exif_date_formatted,
+        exif_date_timestamp,
     )
 
+
+def get_image_quality(
+    file_path:str,
+):
+    image_width, image_height = Image.open(file_path).size
+    quality_dict = {
+        "quality": {
+            "width": image_width,
+            "height": image_height,
+        }
+    }
+    return quality_dict
 
 def get_image_settings(
     file_path: str,
 ):
     """
     Process an input image file to get settings
+
+    TODO: CLEANUP by reducing number of lines in this method (sub-methods?)
     """
     image_info = dict()
 
@@ -133,7 +139,7 @@ def get_image_settings(
     (
         date_field,
         date_confidence,
-        date_value,
+        date_timestamp,
     ) = get_exif_date(
         exif_settings=exif_settings,
         exif_data=exif_data,
@@ -142,7 +148,7 @@ def get_image_settings(
     if (
         date_field is None
         or date_confidence is None
-        or date_value == 0
+        or date_timestamp == 0
     ):
         file_settings = image_settings["date_confidence"]["file"]
 
@@ -168,14 +174,27 @@ def get_image_settings(
 
         image_info.update({"device":exif_extras})
 
+    date_human = datetime.strftime(
+        datetime.fromtimestamp(
+            date_timestamp,
+        ),
+        DATE_FORMAT,
+    )
 
     image_info.update({
         "date":{
             "date_type":date_type,
             "date_field":date_field,
             "date_confidence":date_confidence,
-            "date_value":date_value,
+            "date_timestamp":date_timestamp,
+            "date_human":date_human,
         }
     })
+
+    image_info.update(
+        get_image_quality(
+            file_path
+        )
+    )
 
     return image_info
