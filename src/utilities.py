@@ -1,5 +1,7 @@
 import os
+import copy
 import yaml
+import typing
 import pathlib
 import logging
 
@@ -92,3 +94,73 @@ def read_settings(
             )
 
     return settings_dict
+
+def merge_list(
+        src_list:list,
+        new_list:list,
+) -> list:
+    """
+    Merge two lists with duplicate checking
+    """
+    output = list(
+        dict.fromkeys(
+            src_list + new_list
+        )
+    )
+
+    if len(output) == 1:
+        output = output[0]
+
+    return output
+
+def merge_dict(
+        src_dict:dict,
+        new_dict:dict,
+) -> dict:
+    """
+    Merge two dict without overriding existing values
+    """
+    output = copy.deepcopy(src_dict)
+
+    for key, value in new_dict.items():
+        if key in output.keys():
+            output[key] = recursive_update(
+                src_item=output.get(key),
+                new_item=value,
+            )
+        else:
+            output[key] = value
+
+    return output
+
+def recursive_update(
+        src_item:typing.Any,
+        new_item:typing.Any,
+) -> typing.Any:
+    """
+    Recursively update various file types
+    """
+    if new_item is None:
+        return src_item
+
+    output = None
+    src_type = src_item.__class__.__name__
+    new_type = new_item.__class__.__name__
+
+    if src_type == new_type:
+        if src_type == "list":
+            output = merge_list(src_item,new_item)
+        elif src_type == "dict":
+            output = merge_dict(src_item,new_item)
+        else:
+            output = merge_list([src_item],[new_item])
+
+    else:
+        if src_type == "list":
+            output = merge_list(src_item,[new_item])
+        elif new_type == "list":
+            output = merge_list(new_item,[src_item])
+        else:
+            exit -1
+
+    return output

@@ -6,10 +6,15 @@ from multiprocessing import Process, Lock
 
 from file_processor import get_file_settings
 from image_processor import get_image_settings
-from utilities import setup_logger, read_settings, get_script_details
+from utilities import (
+	setup_logger,
+	read_settings,
+	get_script_details,
+	recursive_update,
+)
 
 # GLOBAL VARIABLES
-SRC_PATH = r'C:\Users\pault\Pictures\Sélection Noël 2019'
+SRC_PATH = r'C:\Users\pault\Pictures\'
 
 SCRIPT_HOME, SCRIPT_NAME = get_script_details(script_path=__file__)
 PATH_FILE_LOG = os.path.join(SCRIPT_HOME,'var','log',SCRIPT_NAME + '.log')
@@ -28,6 +33,7 @@ folder_settings = read_settings(
 	settings_file=PATH_FILE_SETTINGS,
 	logger_object=logger,
 )
+
 
 # FUNCTIONS
 def read_inventory(source_file):
@@ -56,9 +62,9 @@ def store_inventory(file_dict, lock):
 		inventory_dict = read_inventory(
 			source_file=PATH_FILE_OUTPUT
 		)
-		update(
-			inventory_dict,
-			file_dict,
+		inventory_dict = recursive_update(
+			src_item=inventory_dict,
+			new_item=file_dict,
 		)
 
 		with open(PATH_FILE_OUTPUT, 'w', encoding='utf8') as inventory_file:
@@ -128,7 +134,7 @@ def process_file(file_path, lock):
 				)
 
 	file_dict = {
-		"files": {
+		"hashes": {
 				file_hash: file_details
 		}
 	}

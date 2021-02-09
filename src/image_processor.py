@@ -1,5 +1,5 @@
 import os
-
+from pprint import pprint
 from PIL import Image
 from PIL.ExifTags import TAGS
 from datetime import datetime
@@ -46,7 +46,6 @@ def get_labeled_exif(
 
     else:
         image = Image.open(file_path)
-        image.verify()
         exif_data_raw = image.getexif()
 
         if exif_data_raw is not None:
@@ -107,11 +106,16 @@ def get_exif_date(
 def get_image_quality(
     file_path:str,
 ):
-    image_width, image_height = Image.open(file_path).size
+    image_object = Image.open(file_path)
     quality_dict = {
         "quality": {
-            "width": image_width,
-            "height": image_height,
+            "resolution":
+                {
+                    "width": image_object.width,
+                    "height": image_object.height,
+                },
+            "format": image_object.format.lower(),
+            "mode": image_object.mode.lower(),
         }
     }
     return quality_dict
