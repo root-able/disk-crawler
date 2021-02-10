@@ -3,12 +3,8 @@ from PIL import Image
 from PIL.ExifTags import TAGS
 from datetime import datetime
 
-from utilities import (
-    setup_logger,
-    read_settings,
-    get_creation_date,
-    get_script_details,
-)
+from file_processor import get_creation_date
+from utilities import setup_logger, read_settings, get_script_details
 
 # GLOBAL VARIABLES
 DATE_FORMAT = "%Y-%m-%d - %H:%M:%S"
@@ -29,6 +25,7 @@ image_settings = read_settings(
 	settings_file=PATH_FILE_SETTINGS,
 	logger_object=logger,
 )
+
 
 # FUNCTIONS
 def get_labeled_exif(
@@ -54,6 +51,7 @@ def get_labeled_exif(
                 exif_data_labeled[TAGS.get(key)] = val
 
         return exif_data_labeled
+
 
 def get_exif_date(
     exif_settings: dict,
@@ -101,6 +99,7 @@ def get_exif_date(
         date_confidence,
         exif_date_timestamp,
     )
+
 
 def get_image_quality(
     file_path:str,

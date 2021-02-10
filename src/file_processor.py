@@ -1,8 +1,15 @@
 import os
 import hashlib
-import platform
 
-from utilities import setup_logger, get_script_details, read_settings, get_formatted_date
+from image_processor import get_image_settings
+from inventory_processor import (
+	store_inventory,
+)
+from utilities import (
+    setup_logger,
+    get_script_details,
+    read_settings,
+)
 
 # GLOBAL VARIABLES
 
@@ -22,69 +29,6 @@ file_settings = read_settings(
 )
 
 # FUNCTIONS
-def get_creation_date(
-    file_path: str,
-    file_settings: dict,
-):
-    """
-    Attempt to get the creation date according
-    to current Operating System
-    """
-    date_field = None
-    date_confidence = None
-    creation_date = float(0)
-    operating_system = str()
-
-    if platform.system() == 'Windows':
-
-        operating_system = 'Windows'
-        date_field = 'ctime'
-        creation_date = os.path.getctime(
-            file_path
-        )
-
-    else:
-
-        file_stats = os.stat(
-            file_path
-        )
-
-        if st_birthtime in file_stats:
-
-            creation_date = file_stats.st_birthtime
-            operating_system = 'Mac OS'
-            date_field = 'birthtime'
-
-        else:
-
-            creation_date = file_stats.st_birthtime
-            operating_system = 'Linux'
-            date_field = 'mtime'
-
-    creation_date_formatted = get_formatted_date(
-        creation_date,
-    )
-
-    for field_settings in file_settings:
-
-        date_confidence = field_settings.get(
-            date_field,
-            date_confidence,
-        )
-
-    logger.info(
-        f'Detected operating_system="{operating_system}", '
-        f'using date_field="{date_field}", '
-        f'with date_confidence="{date_confidence}", '
-        f'collecting date_value="{creation_date_formatted}"'
-    )
-
-    return (
-        date_field,
-        date_confidence,
-        creation_date_formatted,
-    )
-
 def get_file_settings(
     file_path: str,
 ):
@@ -125,3 +69,37 @@ def get_file_settings(
     }
 
     return first_hash, file_object
+
+def process_file(
+        folder_settings:dict,
+        file_path:str,
+        lock
+):
+        file_type = "unknown"
+        file_hash, file_details = get_file_settings(file_path)
+
+        logger.info(
+            f'Processing file_path="{file_path}" with '
+            f'file_hash={file_hash}" and '
+            f'file_ext="{file_details["file"]["extension"]}"'
+        )
+
+        for file_ext_type, file_ext_list in folder_settings["file_extensions"].items():
+            if file_details["file"]["extension"] in file_ext_list:
+
+                file_type = file_ext_type
+                file_details["file"]["type"] = file_type
+                logger.info(f'Found matching known file_type="{file_type}"')
+
+                if file_details["file"]["type"] == "image":
+                    file_details.update(
+                        get_image_settings(file_path)
+                    )
+
+        file_dict = {
+            "hashes": {
+                file_hash: file_details
+            }
+        }
+
+        store_inventory(file_dict, lock)

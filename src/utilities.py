@@ -4,6 +4,8 @@ import yaml
 import typing
 import pathlib
 import logging
+import platform
+import collections
 
 from datetime import datetime
 
@@ -35,6 +37,71 @@ def get_formatted_date(
     )
 
     return formatted_date
+
+
+def get_creation_date(
+    file_path: str,
+    file_settings: dict,
+    logger_object,
+):
+    """
+    Attempt to get the creation date according
+    to current Operating System
+    """
+    date_field = None
+    date_confidence = None
+    creation_date = float(0)
+    operating_system = str()
+
+    if platform.system() == 'Windows':
+
+        operating_system = 'Windows'
+        date_field = 'ctime'
+        creation_date = os.path.getctime(
+            file_path
+        )
+
+    else:
+
+        file_stats = os.stat(
+            file_path
+        )
+
+        if st_birthtime in file_stats:
+
+            creation_date = file_stats.st_birthtime
+            operating_system = 'Mac OS'
+            date_field = 'birthtime'
+
+        else:
+
+            creation_date = file_stats.st_birthtime
+            operating_system = 'Linux'
+            date_field = 'mtime'
+
+    creation_date_formatted = get_formatted_date(
+        creation_date,
+    )
+
+    for field_settings in file_settings:
+
+        date_confidence = field_settings.get(
+            date_field,
+            date_confidence,
+        )
+
+    logger_object.info(
+        f'Detected operating_system="{operating_system}", '
+        f'using date_field="{date_field}", '
+        f'with date_confidence="{date_confidence}", '
+        f'collecting date_value="{creation_date_formatted}"'
+    )
+
+    return (
+        date_field,
+        date_confidence,
+        creation_date_formatted,
+    )
 
 def get_script_details(
         script_path:str,
@@ -164,3 +231,44 @@ def recursive_update(
             exit -1
 
     return output
+
+def dictionary_update(
+        src_dict:dict,
+        new_dict:dict,
+) -> dict:
+    """
+    Recursively update a dictionary
+    """
+    for key, value in new_dict.items():
+        if isinstance(value, collections.abc.Mapping):
+            src_dict[key] = dictionary_update(
+                src_dict = src_dict.get(key, dict()),
+                new_dict = value,
+            )
+
+        else:
+            src_dict[key] = value
+
+    return src_dict
+
+def run_child(
+        pool,
+        function,
+        args,
+        logger_object,
+):
+    logger_object.debug(
+        f'Atttempting to run function_name="{function}" '
+        f'with arguments="{args}"'
+    )
+    try:
+        pool.apply_async(
+            target=function,
+            args=args,
+        )
+
+    except:
+        logger_object.error(
+            f'Error: unable to start thread '
+            f'for function_name="{function}"'
+        )
